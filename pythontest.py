@@ -5,24 +5,13 @@ import io
 import base64
 from typing import Dict, List
 
-# ==============
-# Налаштування сторінки
-# ==============
-st.set_page_config(page_title="Plant Identifier - 3 API", layout="centered")
-st.title("🌿 Plant Identifier - Три API")
+st.set_page_config(page_title="Plant Identifier - 2 API", layout="centered")
+st.title("🌿 Plant Identifier - Два API")
 
-# -------------------------------
-# API KEYS
-# -------------------------------
 PLANTNET_KEY = "2b105FYLbg34pvfXRESKZMMKO"
-PLANTID_KEY = "HxlpPMRKG5HxLVhO9ug43DXFQfJ6LsLF6T4TKj9BCuyWVKzhmJ"
-PERENUAL_KEY = "sk-oQbZ693ec348b4aa213954"  # <<< Отримай на https://perenual.com/docs/api
+PLANTID_KEY = "d859vEC7t54Pys0HKzTC14Yxc3IJ4l1witJTiKNtfsubOoqfDx"
 
-# -------------------------------
-# 1. PlantNet API
-# -------------------------------
 def identify_plantnet(image_bytes):
-    """PlantNet API"""
     try:
         files = [("images", ("image.jpg", image_bytes, "image/jpeg"))]
         params = {"api-key": PLANTNET_KEY}
@@ -58,11 +47,7 @@ def identify_plantnet(image_bytes):
     except Exception as e:
         return {"error": str(e)}
 
-# -------------------------------
-# 2. Plant.id (Kindwise) API
-# -------------------------------
 def identify_plantid(image_bytes):
-    """Plant.id API"""
     try:
         base64_image = base64.b64encode(image_bytes).decode('utf-8')
         
@@ -111,81 +96,7 @@ def identify_plantid(image_bytes):
     except Exception as e:
         return {"error": str(e)}
 
-# -------------------------------
-# 3. Perenual API
-# -------------------------------
-def identify_perenual(image_bytes):
-    """Perenual Plant ID API"""
-    
-    if not PERENUAL_KEY:
-        return {"error": "API ключ не налаштований. Отримай на https://perenual.com/docs/api"}
-    
-    try:
-        # Конвертуємо зображення в base64
-        base64_image = base64.b64encode(image_bytes).decode('utf-8')
-        
-        # Perenual Identification API endpoint
-        url = "https://perenual.com/api/v1/identify"
-        
-        # Формат запиту (можна відправити або URL, або base64)
-        # Спробуємо multipart/form-data як у PlantNet
-        files = {
-            'image': ('plant.jpg', image_bytes, 'image/jpeg')
-        }
-        
-        params = {
-            'key': PERENUAL_KEY
-        }
-        
-        resp = requests.post(
-            url,
-            files=files,
-            params=params,
-            timeout=30
-        )
-        
-        if resp.status_code == 401:
-            return {"error": "Неправильний API ключ або немає доступу до Identification API. Приєднайся до waitlist на https://perenual.com/docs/identify/api"}
-        
-        if resp.status_code == 429:
-            return {"error": "Перевищено ліміт (100 запитів/день у безкоштовній версії)"}
-        
-        if resp.status_code != 200:
-            return {"error": f"Помилка HTTP {resp.status_code}. Можливо API ще в waitlist - спробуй запросити доступ"}
-        
-        data = resp.json()
-        
-        # Обробка результатів Perenual
-        results_list = data.get("results", [])
-        
-        if not results_list:
-            return {"error": "Не знайдено результатів"}
-        
-        results = []
-        for item in results_list[:5]:
-            name = item.get("scientific_name", item.get("name", "Невідомо"))
-            score = item.get("score", 0.0)
-            
-            # Perenual може давати links до деталей
-            resources = item.get("resources", {})
-            
-            results.append({
-                "name": name,
-                "common_name": "",
-                "score": score
-            })
-        
-        return {"results": results, "success": True}
-    
-    except Exception as e:
-        return {"error": f"Perenual помилка: {str(e)}"}
-
-# -------------------------------
-# Функція: показати горизонтальні кольорові блоки
-# -------------------------------
 def show_color_bars(results: List[Dict], api_name: str, color_scheme: str):
-    """Відображення результатів у вигляді кольорових барів"""
-    
     if len(results) == 0:
         st.info(f"**{api_name}**: Немає результатів")
         return
@@ -239,13 +150,7 @@ def show_color_bars(results: List[Dict], api_name: str, color_scheme: str):
     
     st.markdown("---")
 
-# -------------------------------
-# Функція: визначити найточніший результат
-# -------------------------------
 def show_best_result(all_results: Dict):
-    """Показати API з найвищим score"""
-    
-    # Збираємо топові результати від кожного API
     top_scores = {}
     
     for api_name, data in all_results.items():
@@ -261,7 +166,6 @@ def show_best_result(all_results: Dict):
         st.warning("❌ Жоден API не повернув результатів")
         return
     
-    # Знаходимо API з найвищим score
     best_api = max(top_scores.items(), key=lambda x: x[1]["score"])
     api_name = best_api[0]
     plant_data = best_api[1]
@@ -269,17 +173,14 @@ def show_best_result(all_results: Dict):
     st.markdown("---")
     st.header("🏆 Найточніший результат")
     
-    # Іконки для API
     api_icons = {
         "PlantNet": "🌿",
-        "Plant.id": "🤖",
-        "Perenual": "🌱"
+        "Plant.id": "🤖"
     }
     
     icon = api_icons.get(api_name, "🎯")
     display_name = f"{plant_data['name']}" + (f" ({plant_data['common_name']})" if plant_data['common_name'] else "")
     
-    # Красива плашка з переможцем
     html = f"""
     <div style="
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -315,7 +216,6 @@ def show_best_result(all_results: Dict):
     
     st.markdown(html, unsafe_allow_html=True)
     
-    # Показати порівняння всіх API
     st.subheader("📊 Порівняння всіх API")
     
     cols = st.columns(len(top_scores))
@@ -348,18 +248,12 @@ def show_best_result(all_results: Dict):
             """
             st.markdown(html_card, unsafe_allow_html=True)
 
-# -------------------------------
-# ГОЛОВНИЙ ІНТЕРФЕЙС
-# -------------------------------
-
 uploaded = st.file_uploader("Завантаж фото рослини (jpg, png, jpeg):", type=["jpg","jpeg","png"])
 
 if uploaded:
-    # Показати оригінал
     img = Image.open(uploaded).convert("RGB")
     st.image(img, caption="Завантажене фото", use_container_width=True)
     
-    # Отримати байти
     buffered = io.BytesIO()
     img.save(buffered, format="JPEG")
     img_bytes = buffered.getvalue()
@@ -369,7 +263,6 @@ if uploaded:
     
     all_results = {}
     
-    # PlantNet
     with st.spinner("PlantNet розпізнає..."):
         result1 = identify_plantnet(img_bytes)
         all_results["PlantNet"] = result1
@@ -379,7 +272,6 @@ if uploaded:
         else:
             st.error(f"**PlantNet**: {result1.get('error', 'Помилка')}")
     
-    # Plant.id
     with st.spinner("Plant.id розпізнає..."):
         result2 = identify_plantid(img_bytes)
         all_results["Plant.id"] = result2
@@ -389,17 +281,4 @@ if uploaded:
         else:
             st.warning(f"**Plant.id**: {result2.get('error', 'Помилка')}")
     
-    # Perenual
-    with st.spinner("Perenual розпізнає..."):
-        result3 = identify_perenual(img_bytes)
-        all_results["Perenual"] = result3
-        
-        if result3.get("success"):
-            show_color_bars(result3["results"], "🌱 Perenual", "purple")
-        else:
-            st.warning(f"**Perenual**: {result3.get('error', 'Помилка')}")
-    
-    # Показати найточніший результат
     show_best_result(all_results)
-
-
